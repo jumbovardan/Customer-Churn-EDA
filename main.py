@@ -49,68 +49,84 @@ with st.expander("Preview Dataset"):
 
 # ---- Graphs ----
 
-# 1. Churn distribution
-fig1, ax1 = plt.subplots(figsize=(4, 4))
-churn_val = df['Churn'].value_counts()
-ax1.pie(churn_val, labels=['No', 'Yes'], autopct='%1.2f%%', colors=['green', 'red'])
-ax1.set_title("Churn Distribution", fontsize=12)
-st.pyplot(fig1)
+# 1. Churn distribution + Internet service side by side
+col1, col2 = st.columns(2)
+with col1:
+    fig1, ax1 = plt.subplots(figsize=(4, 4))
+    churn_val = df['Churn'].value_counts()
+    ax1.pie(churn_val, labels=['No', 'Yes'], autopct='%1.2f%%', colors=['green', 'red'])
+    ax1.set_title("Churn Distribution", fontsize=12)
+    st.pyplot(fig1, use_container_width=False)
 
-# 2. Churn by demographics
+with col2:
+    fig2, ax2 = plt.subplots(figsize=(5, 3))
+    sns.countplot(data=df, x='InternetService', hue='Churn', palette=['green', 'red'], ax=ax2)
+    ax2.set_title("Churn by Internet Service", fontsize=12)
+    st.pyplot(fig2, use_container_width=False)
+
+# 2. Demographics charts in pairs
 demographics = ['gender', 'SeniorCitizen', 'Partner', 'Dependents']
-for col in demographics:
-    fig, ax = plt.subplots(figsize=(5, 3))
-    churn_rate = df.groupby([col, 'Churn']).size().reset_index(name='count')
-    sns.barplot(x=col, y='count', hue='Churn', data=churn_rate, palette=['green', 'red'], ax=ax)
-    ax.set_title(f"Churn Distribution by {col}", fontsize=12)
-    st.pyplot(fig)
+for i in range(0, len(demographics), 2):
+    col1, col2 = st.columns(2)
+    for col, feature in zip([col1, col2], demographics[i:i+2]):
+        with col:
+            fig, ax = plt.subplots(figsize=(5, 3))
+            churn_rate = df.groupby([feature, 'Churn']).size().reset_index(name='count')
+            sns.barplot(x=feature, y='count', hue='Churn', data=churn_rate,
+                        palette=['green', 'red'], ax=ax)
+            ax.set_title(f"Churn by {feature}", fontsize=12)
+            st.pyplot(fig, use_container_width=False)
 
-# 3. Churn by Internet Service
-fig, ax = plt.subplots(figsize=(5, 3))
-sns.countplot(data=df, x='InternetService', hue='Churn', palette=['green', 'red'], ax=ax)
-ax.set_title("Churn Distribution by Internet Service", fontsize=12)
-st.pyplot(fig)
-
-# 4. Churn rate by services
+# 3. Services churn rate in pairs
 services = ['StreamingTV', 'StreamingMovies', 'OnlineSecurity',
             'OnlineBackup', 'DeviceProtection', 'TechSupport', 'Contract']
-for service in services:
+for i in range(0, len(services), 2):
+    col1, col2 = st.columns(2)
+    for col, service in zip([col1, col2], services[i:i+2]):
+        with col:
+            fig, ax = plt.subplots(figsize=(5, 3))
+            service_churn = df.groupby(service)['Churn'].mean().reset_index()
+            service_churn['Churn_rate_%'] = service_churn['Churn'] * 100
+            sns.barplot(x=service, y='Churn_rate_%', data=service_churn,
+                        ax=ax, palette="Reds")
+            ax.set_title(f"Churn Rate by {service}", fontsize=12)
+            ax.set_ylabel("Churn Rate (%)")
+            st.pyplot(fig, use_container_width=False)
+
+# 4. Contract + Payment method side by side
+col1, col2 = st.columns(2)
+with col1:
     fig, ax = plt.subplots(figsize=(5, 3))
-    service_churn = df.groupby(service)['Churn'].mean().reset_index()
-    service_churn['Churn_rate_%'] = service_churn['Churn'] * 100
-    sns.barplot(x=service, y='Churn_rate_%', data=service_churn, ax=ax, palette="Reds")
-    ax.set_title(f"Churn Rate by {service}", fontsize=12)
-    ax.set_ylabel("Churn Rate (%)")
-    st.pyplot(fig)
+    sns.countplot(x='Contract', hue='Churn', data=df, palette=['green', 'red'], ax=ax)
+    ax.set_title("Churn by Contract Type", fontsize=12)
+    st.pyplot(fig, use_container_width=False)
 
-# 5. Churn by Contract
-fig, ax = plt.subplots(figsize=(5, 3))
-sns.countplot(x='Contract', hue='Churn', data=df, palette=['green', 'red'], ax=ax)
-ax.set_title("Churn by Contract Type", fontsize=12)
-st.pyplot(fig)
+with col2:
+    fig, ax = plt.subplots(figsize=(5, 3))
+    sns.countplot(x='PaymentMethod', hue='Churn', data=df, palette=['green', 'red'], ax=ax)
+    plt.setp(ax.get_xticklabels(), rotation=45)
+    ax.set_title("Churn by Payment Method", fontsize=12)
+    st.pyplot(fig, use_container_width=False)
 
-# 6. Churn by Payment Method
-fig, ax = plt.subplots(figsize=(6, 3))
-sns.countplot(x='PaymentMethod', hue='Churn', data=df, palette=['green', 'red'], ax=ax)
-plt.setp(ax.get_xticklabels(), rotation=45)
-ax.set_title("Churn by Payment Method", fontsize=12)
-st.pyplot(fig)
-
-# 7. KDE plots
+# 5. KDE plots in pairs
 def kdeplot(feature):
     fig, ax = plt.subplots(figsize=(5, 3))
     sns.kdeplot(df[df['Churn'] == 0][feature], color='green', label='No', fill=True, ax=ax)
     sns.kdeplot(df[df['Churn'] == 1][feature], color='red', label='Yes', fill=True, ax=ax)
     ax.set_title(f"{feature} distribution by Churn", fontsize=12)
     ax.legend()
-    st.pyplot(fig)
+    return fig
 
-for feat in ['tenure', 'MonthlyCharges', 'TotalCharges']:
-    kdeplot(feat)
+features = ['tenure', 'MonthlyCharges', 'TotalCharges']
+for i in range(0, len(features), 2):
+    col1, col2 = st.columns(2)
+    for col, feat in zip([col1, col2], features[i:i+2]):
+        with col:
+            st.pyplot(kdeplot(feat), use_container_width=False)
 
-# 8. Correlation heatmap
+# 6. Correlation heatmap
 fig, ax = plt.subplots(figsize=(6, 4))
 sns.heatmap(df[['tenure','MonthlyCharges','TotalCharges','Churn']].corr(),
             annot=True, cmap="coolwarm", fmt=".2f", ax=ax)
 ax.set_title("Correlation Heatmap", fontsize=12)
-st.pyplot(fig)
+st.pyplot(fig, use_container_width=False)
